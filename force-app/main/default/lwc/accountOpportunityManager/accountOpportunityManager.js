@@ -4,21 +4,18 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 // Import Apex methods
 import getOppsByAccountList from '@salesforce/apex/accountOpportunityManager.getOppsByAccountList';
 import updateOpportunityList from '@salesforce/apex/accountOpportunityManager.updateOpportunityList';
+import createOpportunity from '@salesforce/apex/accountOpportunityManager.createOpportunity';
+import deleteOpportunityList from '@salesforce/apex/accountOpportunityManager.deleteOpportunityList';
 
 export default class AccountOpportunityManager extends LightningElement {
-    // The recordId will be auto-passed when used in record page
-    @api recordId;
 
-    // All related opportunities for the Account
-    @track opportunities = [];
+    @api recordId; // Account ID from the record page
+    @track opportunities = []; // Opportunities for the current account
+    @track selectedOpportunity = {}; // Current opportunity in modal
+    @track showModal = false; // Controls modal visibility
+    @track isNew = false; // Track whether modal is for new or edit
 
-    // Holds the currently selected opportunity being edited in the modal
-    @track selectedOpportunity = {};
-
-    // Controls visibility of modal
-    @track showModal = false;
-
-    // Fetch opportunities related to the current Account
+    // Fetch opportunities
     @wire(getOppsByAccountList, { accId: '$recordId' })
     wiredOpps({ error, data }) {
         if (data) {
@@ -28,76 +25,129 @@ export default class AccountOpportunityManager extends LightningElement {
         }
     }
 
-    // Stage Options
+    // Stage picklist options
     get stageOptions() {
         return [
-            {value: 'New', label: 'New'},
-            {value: 'Quote Sent', label: 'Quote Sent'},
-            {value: 'Negotiation', label: 'Negotiation'},
-            {value: 'Closed Won', label: 'Closed Won'},
-            {value: 'Closed Lost', label: 'Closed Lost'}
+            { value: 'New', label: 'New' },
+            { value: 'Quote Sent', label: 'Quote Sent' },
+            { value: 'Negotiation', label: 'Negotiation' },
+            { value: 'Closed Won', label: 'Closed Won' },
+            { value: 'Closed Lost', label: 'Closed Lost' }
         ];
     }
 
-    // Called when user clicks the Edit action button
-    handleEdit(event) {
-        const actionName = event.detail.action.name;
-        const row = event.detail.row;
-
-        if (actionName === 'edit') {
-            // Create a copy of the selected opportunity to avoid directly mutating the list
-            this.selectedOpportunity = { ...row };
-            this.showModal = true;
-        }
+    // Returns the modal title
+    get modalTitle() {
+        return this.isNew ? 'New Opportunity' : 'Edit Opportunity';
     }
 
-    // Called when a field value is changed inside the modal
+    // Returns dynamic save button label
+    get saveButtonLabel() {
+        return this.isNew ? 'Create' : 'Update';
+    }
+
+    // Opens the modal for a new opportunity
+    handleNew() {
+        this.selectedOpportunity = {
+            Name: '',
+            StageName: 'New',
+            CloseDate: '',
+            AccountId: this.recordId
+        };
+        this.isNew = true;
+        this.showModal = true;
+    }
+
+    // Opens the modal for editing
+    handleEdit(event) {
+        const row = event.detail.row;
+        this.selectedOpportunity = { ...row }; // Clone to avoid reference issues
+        this.isNew = false;
+        this.showModal = true;
+    }
+
+    // Delete an opportunity
+    handleDelete(event) {
+        const row = event.detail.row;
+        deleteOpportunityList({ oppIds: [row.Id] })
+            .then(() => {
+                this.showToast('Deleted', 'Opportunity deleted successfully', 'success');
+                return getOppsByAccountList({ accId: this.recordId });
+            })
+            .then(result => {
+                this.opportunities = result;
+            })
+            .catch(error => {
+                this.showToast('Error deleting opportunity', error.body.message, 'error');
+            });
+    }
+
+    // Handles value change in modal inputs
     handleFieldChange(event) {
         const fieldName = event.target.name;
         const value = event.target.value;
-
-        // Update the local selectedOpportunity object with the new value
         this.selectedOpportunity[fieldName] = value;
     }
 
-    // Close the modal and reset selected opportunity
+    // Closes the modal
     closeModal() {
         this.showModal = false;
         this.selectedOpportunity = {};
     }
 
-    // Called when the Save button is clicked in the modal
+    // Save the opportunity (new or updated)
     saveOpportunity() {
-        // Make sure the Id is present and wrap it in a list to send to Apex
-        if (this.selectedOpportunity.Id) {
-            updateOpportunityList({ opportunities: [this.selectedOpportunity] })
+        if (this.isNew) {
+            createOpportunity({ oppData: this.selectedOpportunity })
                 .then(() => {
-                    this.showToast('Success', 'Opportunity updated successfully', 'success');
-                    this.showModal = false;
-                    this.selectedOpportunity = {};
-
-                    // Refresh the list of opportunities
+                    this.showToast('Created', 'Opportunity created successfully', 'success');
                     return getOppsByAccountList({ accId: this.recordId });
                 })
                 .then(result => {
                     this.opportunities = result;
                 })
                 .catch(error => {
-                    this.showToast('Error updating opportunities', error.body.message, 'error');
+                    this.showToast('Error creating opportunity', error.body.message, 'error');
                 });
         } else {
-            this.showToast('Error', 'No Opportunity selected for update', 'error');
+            updateOpportunityList({ opportunities: [this.selectedOpportunity] })
+                .then(() => {
+                    this.showToast('Updated', 'Opportunity updated successfully', 'success');
+                    return getOppsByAccountList({ accId: this.recordId });
+                })
+                .then(result => {
+                    this.opportunities = result;
+                })
+                .catch(error => {
+                    this.showToast('Error updating opportunity', error.body.message, 'error');
+                });
         }
+
+        this.closeModal();
     }
 
-    // Utility function to show toast messages
+    // Shows toast messages
     showToast(title, message, variant) {
         this.dispatchEvent(
-            new ShowToastEvent({ title, message, variant })
+            new ShowToastEvent({
+                title,
+                message,
+                variant
+            })
         );
     }
 
-    // DataTable column configuration with action for Edit
+    // Handle datatable row actions
+    handleRowAction(event) {
+        const actionName = event.detail.action.name;
+        if (actionName === 'edit') {
+            this.handleEdit(event);
+        } else if (actionName === 'delete') {
+            this.handleDelete(event);
+        }
+    }
+
+    // Column definitions for datatable
     get columns() {
         return [
             { label: 'Name', fieldName: 'Name' },
@@ -108,7 +158,8 @@ export default class AccountOpportunityManager extends LightningElement {
                 type: 'action',
                 typeAttributes: {
                     rowActions: [
-                        { label: 'Edit', name: 'edit' }
+                        { label: 'Edit', name: 'edit' },
+                        { label: 'Delete', name: 'delete' }
                     ]
                 }
             }

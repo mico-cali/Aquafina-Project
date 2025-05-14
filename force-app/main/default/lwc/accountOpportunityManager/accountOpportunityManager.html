@@ -1,29 +1,40 @@
 <template>
     <lightning-card title="Account Opportunities">
-        <!-- Show datatable opportunities -->
+
+        <!-- New Opportunity Button -->
+        <div class="slds-p-around_small">
+            <lightning-button label="New Opportunity" icon-name="utility:add" onclick={handleNew}></lightning-button>
+        </div>
+
+        <!-- Opportunity List -->
         <template if:true={opportunities}>
             <lightning-datatable
                 key-field="Id"
                 data={opportunities}
                 columns={columns}
-                onrowaction={handleEdit}
+                onrowaction={handleRowAction}
                 hide-checkbox-column>
             </lightning-datatable>
         </template>
 
-        <!-- Modal section -->
+        <!-- Reusable Modal for Create/Edit -->
         <template if:true={showModal}>
             <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
                 <div class="slds-modal__container">
 
-                    <!-- Header -->
+                    <!-- Modal Header -->
                     <header class="slds-modal__header">
-                        <h2 class="slds-modal__title">Edit Opportunity</h2>
+                        <h2 class="slds-modal__title">{modalTitle}</h2>
                     </header>
 
-
-                    <!-- Body -->
+                    <!-- Modal Body -->
                     <div class="slds-modal__content slds-p-around_medium">
+                        <lightning-input
+                            name="Name"
+                            label="Opportunity Name"
+                            value={selectedOpportunity.Name}
+                            onchange={handleFieldChange}>
+                        </lightning-input>
                         <lightning-combobox
                             name="StageName"
                             label="Stage"
@@ -40,16 +51,16 @@
                         </lightning-input>
                     </div>
 
-                    <!-- Footer Save -->
+                    <!-- Modal Footer -->
                     <footer class="slds-modal__footer">
                         <lightning-button label="Cancel" class="slds-float_left" onclick={closeModal}></lightning-button>
-                        <lightning-button variant="brand" label="Save All" onclick={saveOpportunity}></lightning-button>
+                        <lightning-button variant="brand" label={saveButtonLabel} onclick={saveOpportunity}></lightning-button>
                     </footer>
 
                 </div>
             </section>
 
-            <!-- background after opening modal -->
+            <!-- Modal Background -->
             <div class="slds-backdrop slds-backdrop_open"></div>
         </template>
 

@@ -18,4 +18,35 @@ public with sharing class accountOpportunityManager {
             update opportunities;
         }
     }
+
+    // Deletes opportunities based on IDs
+    @AuraEnabled
+    public static void deleteOpportunityList(List<Id> oppIds){
+        if(oppIds != null && !oppIds.isEmpty()) {
+            delete [SELECT Id FROM Opportunity WHERE Id IN :oppIds];    
+        }
+    }
+
+
+    // Creates new opportunities from map of fields
+    @AuraEnabled
+    public static Opportunity createOpportunity(Map<String, String> oppData) {
+        // Validate input map
+        if (oppData == null || !oppData.containsKey('Name') ||
+            !oppData.containsKey('StageName') || !oppData.containsKey('CloseDate') ||
+            !oppData.containsKey('AccountId')) {
+            throw new AuraHandledException('Missing required opportunity fields.');
+        }
+
+        Opportunity newOpp = new Opportunity(
+            Name = oppData.get('Name'),
+            StageName = oppData.get('StageName'),
+            CloseDate = Date.valueOf(oppData.get('CloseDate')),
+            AccountId = oppData.get('AccountId')
+        );
+
+        insert newOpp;
+        return newOpp;
+    }
+
 }
