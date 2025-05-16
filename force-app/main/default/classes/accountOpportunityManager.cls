@@ -30,23 +30,29 @@ public with sharing class accountOpportunityManager {
 
     // Creates new opportunities from map of fields
     @AuraEnabled
-    public static Opportunity createOpportunity(Map<String, String> oppData) {
-        // Validate input map
-        if (oppData == null || !oppData.containsKey('Name') ||
-            !oppData.containsKey('StageName') || !oppData.containsKey('CloseDate') ||
-            !oppData.containsKey('AccountId')) {
-            throw new AuraHandledException('Missing required opportunity fields.');
+    public static List<Opportunity> createOpportunityList(List<Map<String, String>> oppListData) {
+        List<Opportunity> oppsToCreate = new List<Opportunity>();
+        
+        for(Map<String, String> oppData : oppListData) {
+            // Validate input map
+            if (oppData != null && 
+                oppData.containsKey('Name') &&
+                oppData.containsKey('StageName') &&
+                oppData.containsKey('CloseDate') &&
+                oppData.containsKey('AccountId')) {
+            
+
+                oppsToCreate.add(new Opportunity(
+                    Name = oppData.get('Name'),
+                    StageName = oppData.get('StageName'),
+                    CloseDate = Date.valueOf(oppData.get('CloseDate')),
+                    AccountId = oppData.get('AccountId')
+                ));
+            }
         }
 
-        Opportunity newOpp = new Opportunity(
-            Name = oppData.get('Name'),
-            StageName = oppData.get('StageName'),
-            CloseDate = Date.valueOf(oppData.get('CloseDate')),
-            AccountId = oppData.get('AccountId')
-        );
-
-        insert newOpp;
-        return newOpp;
+        insert oppsToCreate;
+        return oppsToCreate;
     }
 
 }

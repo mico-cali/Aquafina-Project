@@ -1,25 +1,31 @@
 <template>
-    <lightning-card title="Account Opportunities">
-
-        <!-- New Opportunity Button -->
-        <div class="slds-p-around_small">
-            <lightning-button label="New Opportunity" icon-name="utility:add" onclick={handleNew}></lightning-button>
+    <lightning-card>
+        <!-- Buttons -->
+        <div class="slds-p-around_small slds-grid slds-grid_align-spread">
+            <!-- Left Part -->
+            <div>
+                <lightning-button label="New Opportunity(s)" icon-name="utility:add" onclick={handleNew} class="slds-m-left_small"></lightning-button>
+                <lightning-button label="Edit Selected" icon-name="utility:edit" variant="brand" onclick={handleEditSelected} class="slds-m-left_small"></lightning-button>
+            </div>
+            <!-- Right Part-->
+            <div>
+                <lightning-button label="Delete Selected" icon-name="utility:delete" variant="destructive" onclick={confirmDelete} class="slds-m-right_small"></lightning-button>
+            </div>
         </div>
 
         <!-- Opportunity List -->
-        <template if:true={opportunities}>
-            <lightning-datatable
-                key-field="Id"
-                data={opportunities}
-                columns={columns}
-                onrowaction={handleRowAction}
-                hide-checkbox-column>
-            </lightning-datatable>
-        </template>
+        <lightning-datatable
+            key-field="Id"
+            data={opportunities}
+            columns={columns}
+            onrowselection={handleRowSelection}
+            checkbox-selection
+            show-row-number-column>
+        </lightning-datatable>
 
         <!-- Reusable Modal for Create/Edit -->
         <template if:true={showModal}>
-            <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <section role="dialog" class="slds-modal slds-fade-in-open slds-modal_small">
                 <div class="slds-modal__container">
 
                     <!-- Modal Header -->
@@ -28,39 +34,105 @@
                     </header>
 
                     <!-- Modal Body -->
-                    <div class="slds-modal__content slds-p-around_medium">
-                        <lightning-input
-                            name="Name"
-                            label="Opportunity Name"
-                            value={selectedOpportunity.Name}
-                            onchange={handleFieldChange}>
-                        </lightning-input>
-                        <lightning-combobox
-                            name="StageName"
-                            label="Stage"
-                            value={selectedOpportunity.StageName}
-                            options={stageOptions}
-                            onchange={handleFieldChange}>
-                        </lightning-combobox>
-                        <lightning-input
-                            name="CloseDate"
-                            type="date"
-                            label="Close Date"
-                            value={selectedOpportunity.CloseDate}
-                            onchange={handleFieldChange}>
-                        </lightning-input>
+                    <div class="slds-modal__content slds-p-around_medium">                
+                        <!-- Check if mass create edit -->
+                        <template if:true={isMassMode}>
+                            <template for:each={selectedOpportunities} for:item="opp" for:index="index">
+                                <div key={opp.Id} class="slds-box slds-var-m-bottom_small">
+                                    <lightning-input
+                                        label="Opportunity Name"
+                                        name="Name"
+                                        value={opp.Name}
+                                        read-only
+                                    ></lightning-input>
+                                    <lightning-combobox
+                                        label="Stage"
+                                        name="StageName"
+                                        value={opp.StageName}
+                                        options={stageOptions}
+                                        onchange={handleModalInputChange}
+                                        data-id={opp.Id}
+                                        required
+                                    ></lightning-combobox>
+                                    <lightning-input
+                                        type="number"
+                                        formatter="currency"
+                                        label="Amount"
+                                        name="Amount"
+                                        value={opp.Amount}
+                                        read-only
+                                    ></lightning-input>
+                                    <lightning-input
+                                        type="date"
+                                        label="Close Date"
+                                        name="CloseDate"
+                                        value={opp.CloseDate}
+                                        onchange={handleModalInputChange}
+                                        data-id={opp.Id}
+                                        required
+                                    ></lightning-input>
+                                </div>
+                            </template>
+                        </template>
+
+                        <!-- Mass New Create -->
+                        <template if:true={isMassNewMode}>
+                            <lightning-datatable
+                                key-field="tempId"
+                                data={selectedOpportunities}
+                                columns={massCreateColumns}
+                                draft-values={draftValues}
+                                oncellchange={handleSaveDrafts}
+                                hide-checkbox-column>
+                            </lightning-datatable>
+                        </template>
                     </div>
 
                     <!-- Modal Footer -->
                     <footer class="slds-modal__footer">
+                        <!-- Add row button in new mass create -->
+                        <template if:true={isMassNewMode}>
+                            <lightning-button label="Add Row" class="slds-float_left slds-m-right_small" icon-name="utility:add" variant="neutral" onclick={handleAddRow}></lightning-button>
+                        </template>
                         <lightning-button label="Cancel" class="slds-float_left" onclick={closeModal}></lightning-button>
                         <lightning-button variant="brand" label={saveButtonLabel} onclick={saveOpportunity}></lightning-button>
                     </footer>
-
                 </div>
             </section>
 
             <!-- Modal Background -->
+            <div class="slds-backdrop slds-backdrop_open"></div>
+        </template>
+
+        <!-- Delete Confirmation Modal -->
+        <template if:true={showDeleteConfirmModal}>
+            <section role="dialog" class="slds-modal slds-fade-in-open">
+                <div class="slds-modal__container">
+                    <!-- Header -->
+                    <header class="slds-modal__header">
+                        <h2 class="slds-modal__title">Confirm Delete</h2>
+                    </header>
+
+                    <!-- Body -->
+                    <div class="slds-modal__content slds-p-around_medium slds-text-align_center">
+                        <lightning-icon icon-name="utility:warning" size="large" variant="warning" class="slds-var-m-bottom_medium"></lightning-icon>
+                        <p class="slds-text-heading_small slds-var-m-bottom_x-small">
+                            Are you sure you want to delete the selected opportunity record(s)?
+                        </p>
+                        <p class="slds-text-body_small slds-text-color_weak">
+                            This action cannot be undone.
+                        </p>
+                    </div>
+
+                    <!-- Footer -->
+                    <footer class="slds-modal__footer">
+                        <lightning-button label="Cancel" class="slds-float_left" onclick={closeDeleteConfirmModal}></lightning-button>
+                        <lightning-button variant="destructive" label="Delete" onclick={deleteConfirmed}></lightning-button>
+                    </footer>
+                </div>
+            </section>
+            
+            <!-- Modal background -->
             <div class="slds-backdrop slds-backdrop_open"></div>
         </template>
 
