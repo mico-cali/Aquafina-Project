@@ -1,4 +1,5 @@
 <template>
+    <!-- <lightning-card title="Account Opportunities"> -->
     <lightning-card>
         <!-- Buttons -->
         <div class="slds-p-around_small slds-grid slds-grid_align-spread">
@@ -34,7 +35,7 @@
                     </header>
 
                     <!-- Modal Body -->
-                    <div class="slds-modal__content slds-p-around_medium">                
+                    <div class="slds-modal__content slds-p-around_medium">
                         <!-- Check if mass create edit -->
                         <template if:true={isMassMode}>
                             <template for:each={selectedOpportunities} for:item="opp" for:index="index">
@@ -97,6 +98,7 @@
                         <lightning-button label="Cancel" class="slds-float_left" onclick={closeModal}></lightning-button>
                         <lightning-button variant="brand" label={saveButtonLabel} onclick={saveOpportunity}></lightning-button>
                     </footer>
+
                 </div>
             </section>
 
@@ -131,7 +133,7 @@
                     </footer>
                 </div>
             </section>
-            
+
             <!-- Modal background -->
             <div class="slds-backdrop slds-backdrop_open"></div>
         </template>

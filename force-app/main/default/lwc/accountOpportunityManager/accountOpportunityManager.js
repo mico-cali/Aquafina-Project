@@ -20,9 +20,8 @@ export default class AccountOpportunityManager extends LightningElement {
     @track isMassNewMode = false; // Track whether modal is for new or edit
     @track isMassMode = false; // To check if the editing, delete, create is for mass/many
     
-    // incremental counter for temporary IDs on new records
+    // Incremental counter for temporary IDs on new records
     tempRowCounter = 0;
-    // wiredOppsResult;
 
     // Datatable columns for main view
     columns = [
@@ -186,6 +185,7 @@ export default class AccountOpportunityManager extends LightningElement {
                 this.showToast('Validation Error', 'Opportunity Name is required.', 'error');
                 return false;
             }
+            // Can be removed cause the stage is set to new by default
             if(!opp.StageName || opp.StageName.trim() === '') {
                 this.showToast('Validation Error', 'Stage is required.', 'error');
                 return false;
@@ -198,7 +198,6 @@ export default class AccountOpportunityManager extends LightningElement {
         return true;
     }
 
-    // Save the current list of opportunities
     saveOpportunity() {
         if(this.isMassNewMode) {
             // Validate first before saving
