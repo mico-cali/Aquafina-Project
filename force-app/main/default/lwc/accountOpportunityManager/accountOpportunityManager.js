@@ -6,13 +6,13 @@ import getOppsByAccountList from '@salesforce/apex/accountOpportunityManager.get
 import updateOpportunityList from '@salesforce/apex/accountOpportunityManager.updateOpportunityList';
 import createOpportunityList from '@salesforce/apex/accountOpportunityManager.createOpportunityList';
 import deleteOpportunityList from '@salesforce/apex/accountOpportunityManager.deleteOpportunityList'; 
+import CloseDate from '@salesforce/schema/Opportunity.CloseDate';
 
 export default class AccountOpportunityManager extends LightningElement {
 
     @api recordId; // Account ID from the record page
     @track opportunities = []; // Opportunities for the current account
     @track selectedOpportunities = []; // Current opportunities in modal
-    @track draftValues = []; // Holds changes in mass edit datatable drafts
 
     @track showModal = false; // Controls modal visibility
     @track showDeleteConfirmModal = false; // For delete confirmation modal 
@@ -31,10 +31,24 @@ export default class AccountOpportunityManager extends LightningElement {
         { label: 'Close Date', fieldName: 'CloseDate', type: 'date' }
     ];
 
+    // For staging datatable for create opportunity
     massCreateColumns = [
-        { label: 'Name', fieldName: 'Name', editable: true },
-        { label: 'Stage', fieldName: 'StageName' },
-        { label: 'Close Date', fieldName: 'CloseDate', editable: true, type: 'date-local' }
+        { label: 'Name', fieldName: 'Name'},
+        { label: 'Stage', fieldName: 'StageName'},
+        { label: 'Amount', fieldName: 'Amount', type: 'currency'},
+        { label: 'Close Date', fieldName: 'CloseDate', type: 'date' },
+        {
+            label: 'Action',
+            type: 'button',
+            typeAttributes: {
+                label: 'Delete',
+                name: 'delete',
+                title: 'Delete Row',
+                iconName: 'utility:delete',
+                variant: 'destructive',
+                iconClass: 'slds-icon_x-small'
+            }
+        }
     ];
 
     // Stage picklist options
@@ -79,7 +93,7 @@ export default class AccountOpportunityManager extends LightningElement {
 
     // Returns dynamic save button label
     get saveButtonLabel() {
-        return this.isMassNewMode ? 'Create' : 'Update';
+        return this.isMassNewMode ? 'Save All' : 'Update';
     }
 
     // Track selected rows in main datatable
@@ -87,20 +101,141 @@ export default class AccountOpportunityManager extends LightningElement {
         this.selectedOpportunities = event.detail.selectedRows;
     }
 
+    // ----------------------------------- NEW OPPORTUNITY -----------------------------------
+    // Add new blank row in mass create modal
+    newOpportunities = [];
+    newOppName = '';
+    newOppStage = '';
+    newOppAmount = 0;
+    newOppCloseDate;
+
+    // edit staging array value
+    editOpportunities = [];
+
+    // this will get what the user input on the name, stage, closedate
+    handleModalInputChange(event) {
+        const fieldName = event.target.name;
+        const value = event.target.value;
+        
+        if(this.isMassMode) {
+            const oppId = event.target.dataset.id;
+            // Assign value to each selected row for editing
+            this.editOpportunities = this.editOpportunities.map(opp => {
+                if (opp.Id === oppId) {
+                    return { ...opp, [fieldName]: value };
+                }
+                return opp;
+            });
+        } else if(this.isMassNewMode) {
+            this[event.target.name] = event.target.value;
+        }
+    }
+
     // Opens the modal for a new opportunity
     handleNew() {
-        this.selectedOpportunities = [{ 
-            tempId: this.generateTempId(), 
-            Name: '', 
-            StageName: 'New', // default new opportunity stage
-            CloseDate: '' 
-        }];
-
+        this.newOpportunities = [];
         this.isMassNewMode = true;
         this.isMassMode = false;
-        this.draftValues =[]; // reset draft values
         this.showModal = true;
     }
+
+    // This is for adding values to the overview datatable before saving/inserting to the database
+    handleAdd() {
+        // validation for inputs
+        if (!this.newOppName || this.newOppName.trim() === '') {
+            this.showToast('Validation Error', 'Opportunity Name is required.', 'error');
+            return;
+        }
+        if(!this.newOppStage  || this.newOppStage.trim() === '') {
+            this.showToast('Validation Error', 'Stage is required.', 'error');
+            return;
+        }
+        if(!this.newOppCloseDate) {
+            this.showToast('Validation Error', 'Close Date is required.', 'error');
+            return;
+        }
+
+        const newOppDraft = {
+            tempId: this.generateTempId(),
+            Name: this.newOppName,
+            StageName: this.newOppStage,
+            Amount: this.newOppAmount,
+            CloseDate: this.newOppCloseDate,
+            AccountId: this.recordId
+        };
+        this.newOpportunities = [...this.newOpportunities, newOppDraft];
+        this.clearInputFields();
+    }
+
+    // This will now be called when the save button is clicked in the mass edit modal
+    handleSaveAll() {
+        if(this.isMassNewMode) {
+            this.handleCreateNewOpportunities();    
+        } else if(this.isMassMode) {
+            this.handleUpdateOpportunities();
+        }
+    }
+
+    // This is for adding/creating new opportunities which will call the apex class function for create opportunity
+    handleCreateNewOpportunities() {
+        if(!this.validateOpportunity) {
+            return;
+        }
+
+        // convert to JSON string
+        const newOppJSONStr = JSON.stringify(this.newOpportunities);
+        createOpportunityList({ newOppJSONListData: newOppJSONStr }) 
+            .then(() => {
+                this.showToast('Success', 'Opportunities created successfully', 'success');
+                this.closeModal();
+                this.refreshList();
+            })
+            .catch(error => {
+                this.showToast('Error creating opportunities', error.body.message, 'error');
+            });
+    }
+
+    // This is to delete the row in the new opp draft datatable
+    handleNewOppDeleteRow(event) {
+        const getActions = event.detail.action;
+        const row = event.detail.row;
+        const rowId = row.tempId;
+
+        if(getActions.name === 'delete') {
+            this.newOpportunities = this.newOpportunities.filter(opp => opp.tempId !== rowId);
+        }
+    }
+
+    // // Validate if there are inputs of the user for name, stage, and close date in the creation of new opportunity
+    // validateOpportunity() {
+    //     // for(const opp of this.newOpportunities) {
+    //     if (!this.newOppName || this.newOppName.trim() === '') {
+    //         this.showToast('Validation Error', 'Opportunity Name is required.', 'error');
+    //         return false;
+    //     }
+    //     // Can be removed cause the stage is set to new by default
+    //     if(!this.newOppStage  || this.newOppStage.trim() === '') {
+    //         this.showToast('Validation Error', 'Stage is required.', 'error');
+    //         return false;
+    //     }
+    //     if(!this.newOppCloseDate) {
+    //         this.showToast('Validation Error', 'Close Date is required.', 'error');
+    //         return false;
+    //     }
+    //     return true;
+    // }
+
+    // reset all fields for add new opportunity fields
+    clearInputFields() {
+        this.newOppName = '';
+        this.newOppStage = '';
+        this.newOppAmount = 0;
+        this.newOppCloseDate = null;    
+    }
+
+    // ----------------------------------- EDIT OPPORTUNITY -----------------------------------
+
+    
 
     // Open modal to edit multiple lines
     handleEditSelected() {
@@ -108,130 +243,25 @@ export default class AccountOpportunityManager extends LightningElement {
             return this.showToast('No rows selected', 'Please select at least one row for editing', 'error');
         }
         // To not directly edit the selected rows, clone them and use the clone as the main data
-        this.selectedOpportunities = JSON.parse(JSON.stringify(this.selectedOpportunities));
+        this.editOpportunities = JSON.parse(JSON.stringify(this.selectedOpportunities));
         
         this.isMassNewMode = false;
-        this.isMassMode = true;
+        this.isMassMode = true; 
         this.showModal = true;
     }   
 
-    // Add new blank row in mass create modal
-    handleAddRow() {
-        const newRow = {
-            tempId: this.generateTempId(), //  unique ID
-            Name: '',
-            StageName: 'New',
-            CloseDate: '',
-            AccountId: this.recordId
-        };
-        this.selectedOpportunities = [...this.selectedOpportunities, newRow];
-    }
-
-    // Handles draft changes in the mass edit datatable
-    handleSaveDrafts(event) {
-        const drafts = event.detail.draftValues;
-
-        if(this.isMassNewMode) {
-            let updatedSelectedOpps = JSON.parse(JSON.stringify(this.selectedOpportunities)); // Create a deep clone to ensure reactivity
-    
-            drafts.forEach(draft => {
-                const index = updatedSelectedOpps.findIndex(opp => opp.tempId === draft.tempId);
-                if (index !== -1) {
-                    // Merge the draft changes into the existing opportunity object
-                    Object.assign(updatedSelectedOpps[index], draft);
-                }
+    // Handles the update of the selected opportunities
+    handleUpdateOpportunities() {
+        const updateOppJSONStr = JSON.stringify(this.editOpportunities);
+        updateOpportunityList({ opportunities: updateOppJSONStr }) 
+            .then(() => {
+                this.showToast('Success', 'Opportunities updated successfully', 'success');
+                this.closeModal();
+                this.refreshList();
+            })
+            .catch(error => {
+                this.showToast('Error creating opportunities', error.body.message, 'error');
             });
-            this.selectedOpportunities = updatedSelectedOpps; // Update the reactive property
-        } else if(this.isMassMode) {
-            this.draftValues = [...this.draftValues, ...drafts]; 
-
-            let updatedSelectedOpps = JSON.parse(JSON.stringify(this.selectedOpportunities)); 
-            drafts.forEach(draft => {
-                const index = updatedSelectedOpps.findIndex(opp => opp.Id === draft.Id);
-                if (index !== -1) {
-                    // Merge the draft changes into the existing opportunity object
-                    Object.assign(updatedSelectedOpps[index], draft);
-                }
-            });
-            this.selectedOpportunities = updatedSelectedOpps; // Update the reactive property
-        }
-        
-        // Clear draft values 
-        this.draftValues = [];
-    }
-
-    // Handles edit input changes for the mass edit opportunity
-    handleModalInputChange(event) {
-        const { id } = event.target.dataset;   // The Id of the opportunity being edited
-        const fieldName = event.target.name;  // The field that changed
-        const value = event.detail.value;    
-
-        // Use map to create a new array with the updated opportunity
-        this.selectedOpportunities = this.selectedOpportunities.map(opp => {
-            if (opp.Id === id) {
-                // If this is the opportunity that changed, create a new object
-                // with the updated field value.
-                return { ...opp, [fieldName]: value };
-            }
-
-            return opp;
-        });
-    }
-
-    // Validates the current opportunities in the new creation before saving
-    validateOpportunity() {
-        for(const opp of this.selectedOpportunities) {
-            if(!opp.Name || opp.Name.trim() === '') {
-                this.showToast('Validation Error', 'Opportunity Name is required.', 'error');
-                return false;
-            }
-            // Can be removed cause the stage is set to new by default
-            if(!opp.StageName || opp.StageName.trim() === '') {
-                this.showToast('Validation Error', 'Stage is required.', 'error');
-                return false;
-            }
-            if(!opp.CloseDate) {
-                this.showToast('Validation Error', 'Close Date is required.', 'error');
-                return false;
-            }
-        }
-        return true;
-    }
-
-    saveOpportunity() {
-        if(this.isMassNewMode) {
-            // Validate first before saving
-            if(!this.validateOpportunity()) {
-                return;
-            }
-
-            // const newOpps = this.selectedOpportunities.map(({ tempId, ...rest }) => ({ ...rest, AccountId: this.recordId }));
-            // destructured style
-            const newOpps = this.selectedOpportunities.map(opp => {
-                const { tempId, ...rest } = opp; // Destructure to exclude tempId
-                return { ...rest, AccountId: this.recordId }; // Add AccountId
-            });
-
-            createOpportunityList({ oppListData: newOpps })
-                .then(() => {
-                    this.showToast('Success', 'Opportunities created successfully.', 'success');
-                    this.closeModal();
-                    return this.refreshList();
-                })
-                .catch(error => {
-                    this.showToast('Error creating opportunities', error.body.message, 'error');
-                });
-        } else if (this.isMassMode) {
-            updateOpportunityList({ opportunities: this.selectedOpportunities })
-                .then(() => {
-                    this.showToast('Success', 'Opportunities updated successfully.', 'success');
-                    this.closeModal();
-                    return this.refreshList();
-                })
-                .catch(error => {
-                    this.showToast('Error updating opportunities', error.body.message, 'error');
-                });
-        }
     }
 
     // validation if there is/are selected rows for deletion
@@ -248,6 +278,7 @@ export default class AccountOpportunityManager extends LightningElement {
         this.showDeleteConfirmModal = false;
     }
 
+    // Delete the selected rows
     deleteConfirmed() {
         const deleteIds = this.selectedOpportunities.map(opp => opp.Id);
         deleteOpportunityList({ oppIds: deleteIds })
@@ -267,17 +298,18 @@ export default class AccountOpportunityManager extends LightningElement {
     closeModal() {
         this.showModal = false;
         this.selectedOpportunities = []; // reset selected opportunities
-        this.draftValues = []; //reset
+        // this.draftValues = []; //reset
         this.isMassNewMode = false;
         this.isMassMode = false;
     }
 
+    // this will refresh/reset the array values
     refreshList() {
         return getOppsByAccountList({ accId: this.recordId })
             .then(data => {
                 this.opportunities = data;
                 this.selectedOpportunities = [];
-                this.draftValues = [];
+                this.newOpportunities =[];
             })
             .catch(error => {
                 this.showToast('Error refreshing opportunities', error.body.message, 'error');

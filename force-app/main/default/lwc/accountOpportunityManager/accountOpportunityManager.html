@@ -32,6 +32,7 @@
                     <!-- Modal Header -->
                     <header class="slds-modal__header">
                         <h2 class="slds-modal__title">{modalTitle}</h2>
+                        <h2>isMassNewMode: {isMassNewMode}</h2>
                     </header>
 
                     <!-- Modal Body -->
@@ -76,16 +77,58 @@
                             </template>
                         </template>
 
+                        <!-- draft-values={draftValues} -->
+                        <!-- oncellchange={handleSaveDrafts} -->
+                        <!-- onsave={handleSaveDrafts} -->
+
                         <!-- Mass New Create -->
                         <template if:true={isMassNewMode}>
-                            <lightning-datatable
-                                key-field="tempId"
-                                data={selectedOpportunities}
-                                columns={massCreateColumns}
-                                draft-values={draftValues}
-                                oncellchange={handleSaveDrafts}
-                                hide-checkbox-column>
-                            </lightning-datatable>
+                            <!-- This line if for input of new opportunities -->
+                            <div class="slds-box slds-var-m-bottom_medium">
+                                <lightning-input
+                                    label="Opportunity Name"
+                                    name="newOppName"
+                                    value={newOppName}
+                                    onchange={handleModalInputChange}
+                                    required
+                                ></lightning-input>
+                                <lightning-combobox
+                                    label="Stage"
+                                    name="newOppStage"
+                                    value={newOppStage}
+                                    options={stageOptions}
+                                    onchange={handleModalInputChange}
+                                    required
+                                ></lightning-combobox>
+                                <lightning-input
+                                    type="number"
+                                    formatter="currency"
+                                    label="Amount"
+                                    name="newOppAmount"
+                                    value={newOppAmount}
+                                    read-only
+                                ></lightning-input>
+                                <lightning-input
+                                    type="date"
+                                    label="Close Date"
+                                    name="newOppCloseDate"
+                                    value={newOppCloseDate}
+                                    onchange={handleModalInputChange}
+                                    required
+                                ></lightning-input>
+                            </div>
+
+                            <div class="slds-box slds-var-m-bottom_medium">
+                                <!-- this will be a draft datatable -->
+                                <lightning-datatable
+                                    key-field="tempId"
+                                    data={newOpportunities}
+                                    columns={massCreateColumns}
+                                    onrowaction={handleNewOppDeleteRow}
+                                    hide-checkbox-column>
+                                </lightning-datatable>
+                            </div>
+                            
                         </template>
                     </div>
 
@@ -93,10 +136,16 @@
                     <footer class="slds-modal__footer">
                         <!-- Add row button in new mass create -->
                         <template if:true={isMassNewMode}>
-                            <lightning-button label="Add Row" class="slds-float_left slds-m-right_small" icon-name="utility:add" variant="neutral" onclick={handleAddRow}></lightning-button>
+                            <lightning-button 
+                                label="Add" 
+                                class="slds-float_left slds-m-right_small"
+                                icon-name="utility:add" 
+                                variant="brand" 
+                                onclick={handleAdd}>
+                            </lightning-button>
                         </template>
                         <lightning-button label="Cancel" class="slds-float_left" onclick={closeModal}></lightning-button>
-                        <lightning-button variant="brand" label={saveButtonLabel} onclick={saveOpportunity}></lightning-button>
+                        <lightning-button variant="brand" label={saveButtonLabel} onclick={handleSaveAll}></lightning-button>
                     </footer>
 
                 </div>

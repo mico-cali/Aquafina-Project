@@ -27,32 +27,14 @@ public with sharing class accountOpportunityManager {
         }
     }
 
-
-    // Creates new opportunities from map of fields
+    // New version
+    // Creates new opportunities
     @AuraEnabled
-    public static List<Opportunity> createOpportunityList(List<Map<String, String>> oppListData) {
-        List<Opportunity> oppsToCreate = new List<Opportunity>();
-        
-        for(Map<String, String> oppData : oppListData) {
-            // Validate input map
-            if (oppData != null && 
-                oppData.containsKey('Name') &&
-                oppData.containsKey('StageName') &&
-                oppData.containsKey('CloseDate') &&
-                oppData.containsKey('AccountId')) {
-            
+    public static List<Opportunity> createOpportunityList(String newOppJSONListData) {
 
-                oppsToCreate.add(new Opportunity(
-                    Name = oppData.get('Name'),
-                    StageName = oppData.get('StageName'),
-                    CloseDate = Date.valueOf(oppData.get('CloseDate')),
-                    AccountId = oppData.get('AccountId')
-                ));
-            }
-        }
+        List<Opportunity> oppList = (List<Opportunity>) JSON.deserialize(newOppJSONListData, List<Opportunity>.class);
 
-        insert oppsToCreate;
-        return oppsToCreate;
+        insert oppList;
+        return oppList;
     }
-
 }
