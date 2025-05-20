@@ -23,9 +23,9 @@ The Sales Cloud configuration focuses on optimizing AQUAFINA's sales cycle, from
     * This component enhances the Account record page by providing a dynamic view of related Opportunities.
     * **Features:**
         * Displays a comprehensive list of opportunities linked to the current Account (Name, Stage, Close Date, Amount).
-        * Allows for **inline editing** of the 'Stage' and 'Close Date' fields for each opportunity.
-        * Includes a "Save All" button to efficiently update multiple modified opportunities in a single transaction via an Apex method.
-        * Provides user feedback through **toast messages** for successful saves or any encountered errors.
+        * Enables **mass editing (inline editing)** of the 'Stage' and 'Close Date' fields for multiple opportunities directly within the list.
+        * Includes a prominent "Save All" button, allowing users to **batch update** all modified opportunities with a single click via an efficient Apex method call.
+        * Provides immediate user feedback through **toast messages** for successful save operations or any encountered errors.
 * **Sales Dashboards and Reports:** Comprehensive dashboards providing real-time insights into:
     * Ongoing Leads
     * Ongoing Opportunities Pipeline (amount and count, by month, by stage)
