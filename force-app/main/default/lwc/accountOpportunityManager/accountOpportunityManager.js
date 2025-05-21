@@ -6,7 +6,6 @@ import getOppsByAccountList from '@salesforce/apex/accountOpportunityManager.get
 import updateOpportunityList from '@salesforce/apex/accountOpportunityManager.updateOpportunityList';
 import createOpportunityList from '@salesforce/apex/accountOpportunityManager.createOpportunityList';
 import deleteOpportunityList from '@salesforce/apex/accountOpportunityManager.deleteOpportunityList'; 
-import CloseDate from '@salesforce/schema/Opportunity.CloseDate';
 
 export default class AccountOpportunityManager extends LightningElement {
 
@@ -36,7 +35,7 @@ export default class AccountOpportunityManager extends LightningElement {
         { label: 'Name', fieldName: 'Name'},
         { label: 'Stage', fieldName: 'StageName'},
         { label: 'Amount', fieldName: 'Amount', type: 'currency'},
-        { label: 'Close Date', fieldName: 'CloseDate', type: 'date' },
+        { label: 'Close Date', fieldName: 'CloseDate', type: 'date-local' },
         {
             label: 'Action',
             type: 'button',
@@ -66,9 +65,8 @@ export default class AccountOpportunityManager extends LightningElement {
     @wire(getOppsByAccountList, { accId: '$recordId' })
     wiredOpps({ error, data }) {
         if (data) {
-            // this.opportunities = data;
             
-            // Assign tempId = Id for each existing opportunity for unique keys in datatable
+            // Assign tempId for each existing opportunity for unique keys in datatable
             this.opportunities = data.map(opp => ({
                 ...opp,
                 tempId: opp.Id // Use Salesforce Id as tempId for existing records
@@ -178,10 +176,6 @@ export default class AccountOpportunityManager extends LightningElement {
 
     // This is for adding/creating new opportunities which will call the apex class function for create opportunity
     handleCreateNewOpportunities() {
-        if(!this.validateOpportunity) {
-            return;
-        }
-
         // convert to JSON string
         const newOppJSONStr = JSON.stringify(this.newOpportunities);
         createOpportunityList({ newOppJSONListData: newOppJSONStr }) 
@@ -206,25 +200,6 @@ export default class AccountOpportunityManager extends LightningElement {
         }
     }
 
-    // // Validate if there are inputs of the user for name, stage, and close date in the creation of new opportunity
-    // validateOpportunity() {
-    //     // for(const opp of this.newOpportunities) {
-    //     if (!this.newOppName || this.newOppName.trim() === '') {
-    //         this.showToast('Validation Error', 'Opportunity Name is required.', 'error');
-    //         return false;
-    //     }
-    //     // Can be removed cause the stage is set to new by default
-    //     if(!this.newOppStage  || this.newOppStage.trim() === '') {
-    //         this.showToast('Validation Error', 'Stage is required.', 'error');
-    //         return false;
-    //     }
-    //     if(!this.newOppCloseDate) {
-    //         this.showToast('Validation Error', 'Close Date is required.', 'error');
-    //         return false;
-    //     }
-    //     return true;
-    // }
-
     // reset all fields for add new opportunity fields
     clearInputFields() {
         this.newOppName = '';
@@ -234,9 +209,6 @@ export default class AccountOpportunityManager extends LightningElement {
     }
 
     // ----------------------------------- EDIT OPPORTUNITY -----------------------------------
-
-    
-
     // Open modal to edit multiple lines
     handleEditSelected() {
         if (this.selectedOpportunities.length === 0) {
