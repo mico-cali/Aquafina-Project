@@ -19,6 +19,7 @@ public with sharing class accountOpportunityManager {
         }
     }
     String triplang;
+    String hindipalakailangan;
     // Deletes opportunities based on IDs
     @AuraEnabled
     public static void deleteOpportunityList(List<Id> oppIds){
